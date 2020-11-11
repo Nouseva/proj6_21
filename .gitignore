@@ -123,3 +123,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Temp files
+~*
+*.swp
+*.swo
+src/results*
+log*.txt
