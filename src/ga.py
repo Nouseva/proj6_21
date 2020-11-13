@@ -86,6 +86,9 @@ class Individual_Grid(object):
             for x in range(left, right):
                 # STUDENT Which one should you take?  Self, or other?  Why?
                 # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
+                selected = any([self, other])
+                new_genome[x][y] = selected[x][y]
+
                 pass
         # do mutation; note we're returning a one-element tuple here
         return (Individual_Grid(new_genome),)
@@ -374,6 +377,7 @@ def ga():
         start = time.time()
         now = start
         print("Use ctrl-c to terminate this loop manually.")
+        print(population)
         try:
             while True:
                 now = time.time()
