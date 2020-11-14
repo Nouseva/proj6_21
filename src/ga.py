@@ -80,17 +80,22 @@ class Individual_Grid(object):
         new_genome = copy.deepcopy(self.genome)
         # Leaving first and last columns alone...
         # do crossover with other
+        # print(new_genome)
+        # print(other)
         left = 1
         right = width - 1
+        # print(len(new_genome), width)
         for y in range(height):
             for x in range(left, right):
                 # STUDENT Which one should you take?  Self, or other?  Why?
                 # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-                selected = any([self, other])
-                new_genome[x][y] = selected[x][y]
+                selected = random.choice([self.genome, other.genome])
+                # print(selected)
+                new_genome[y][x] = selected[y][x]
 
                 pass
         # do mutation; note we're returning a one-element tuple here
+        new_genome = self.mutate(new_genome)
         return (Individual_Grid(new_genome),)
 
     # Turn the genome into a level string (easy for this genome)
@@ -104,11 +109,11 @@ class Individual_Grid(object):
         g = [["-" for col in range(width)] for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
-        g[7][-1] = "v"
+        g[7][-2] = "v"
         for col in range(8, 14):
-            g[col][-1] = "f"
+            g[col][-2] = "f"
         for col in range(14, 16):
-            g[col][-1] = "X"
+            g[col][-2] = "X"
         return cls(g)
 
     @classmethod
@@ -118,9 +123,13 @@ class Individual_Grid(object):
         g = [random.choices(options, k=width) for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
-        g[7][-1] = "v"
-        g[8:14][-1] = ["f"] * 6
-        g[14:16][-1] = ["X", "X"]
+        g[7][-2] = "v"
+        for col in range(8, 14):
+            g[col][-2] = "f"
+        for col in range(14, 16):
+            g[col][-2] = "X"
+        # g[8:14][-1] = ["f"] * 6
+        # g[14:16][-1] = ["X", "X"]
         return cls(g)
 
 
@@ -342,14 +351,24 @@ class Individual_DE(object):
         ]) for i in range(elt_count)]
         return Individual_DE(g)
 
-
+# Selector
 Individual = Individual_Grid
 
 
 def generate_successors(population):
-    results = []
+    # results = []
     # STUDENT Design and implement this
     # Hint: Call generate_children() on some individuals and fill up results.
+    # TODO: some smart method of selecting partners
+    # partners are the individuals in the opposing position in the list
+    # partners  = population[::-1]
+
+    # partners are next best individual, worst gets to pair with best
+    partners  = population[1:] + population[:1]
+
+    groupings = list(zip(population, partners))
+
+    results = [ p.generate_children(q)[0] for p, q in groupings ]
     return results
 
 
@@ -377,7 +396,7 @@ def ga():
         start = time.time()
         now = start
         print("Use ctrl-c to terminate this loop manually.")
-        print(population)
+        # print(population)
         try:
             while True:
                 now = time.time()
@@ -393,8 +412,9 @@ def ga():
                             f.write("".join(row) + "\n")
                 generation += 1
                 # STUDENT Determine stopping condition
-                stop_condition = False
-                if stop_condition:
+                # TODO: Allow to run some generation
+                # stop_condition = False
+                if generation > 20:
                     break
                 # STUDENT Also consider using FI-2POP as in the Sorenson & Pasquier paper
                 gentime = time.time()
@@ -419,7 +439,7 @@ if __name__ == "__main__":
     print("Best fitness: " + str(best.fitness()))
     now = time.strftime("%m_%d_%H_%M_%S")
     # STUDENT You can change this if you want to blast out the whole generation, or ten random samples, or...
-    for k in range(0, 10):
+    for k in range(0, 1):
         with open("levels/" + now + "_" + str(k) + ".txt", 'w') as f:
             for row in final_gen[k].to_level():
                 f.write("".join(row) + "\n")
