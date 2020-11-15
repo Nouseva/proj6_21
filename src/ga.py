@@ -208,78 +208,117 @@ class Individual_DE(object):
         # STUDENT How does this work?  Explain it in your writeup.
         # STUDENT consider putting more constraints on this, to prevent generating weird things
         if random.random() < 0.1 and len(new_genome) > 0:
+            # select one "gene" of the genome at random
             to_change = random.randint(0, len(new_genome) - 1)
             de = new_genome[to_change]
+            # make a new "gene" by copying the "gene" from the original genome for later "allele" modification
             new_de = de
+            # get x coord from original "gene"
             x = de[0]
+            # get design element type from original "gene"
             de_type = de[1]
+            # get random float [0.0, 1.0)
             choice = random.random()
             if de_type == "4_block":
+                # for a block type DE, get y coord, breakability aspects from original gene
                 y = de[2]
                 breakable = de[3]
+                # 1/3 probability to offset x coord 
                 if choice < 0.33:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/3 probability to offset y coord
                 elif choice < 0.66:
                     y = offset_by_upto(y, height / 2, min=0, max=height - 1)
+                # 1/3 probability to reverse breakability
                 else:
                     breakable = not de[3]
+                # place resulting "allele" in the new "gene"
                 new_de = (x, de_type, y, breakable)
             elif de_type == "5_qblock":
+                # for a ? block type DE, get y coord, powerup aspects from original gene
                 y = de[2]
                 has_powerup = de[3]  # boolean
+                # 1/3 probability to offset x coord
                 if choice < 0.33:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/3 probability to offset y coord
                 elif choice < 0.66:
                     y = offset_by_upto(y, height / 2, min=0, max=height - 1)
+                # 1/3 probability to reverse powerup presence
                 else:
                     has_powerup = not de[3]
+                # place resulting "allele" in the new "gene"
                 new_de = (x, de_type, y, has_powerup)
             elif de_type == "3_coin":
+                # for a coin type DE, get y coord
                 y = de[2]
+                # 1/2 probability to offset x coord
                 if choice < 0.5:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/2 probability to offset y coord
                 else:
                     y = offset_by_upto(y, height / 2, min=0, max=height - 1)
                 new_de = (x, de_type, y)
             elif de_type == "7_pipe":
+                # for a pipe type DE, get height aspect
                 h = de[2]
+                # 1/2 probability to offset x coord
                 if choice < 0.5:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/2 probability to offset height aspect
                 else:
                     h = offset_by_upto(h, 2, min=2, max=height - 4)
+                # place resulting "allele" in the new "gene"
                 new_de = (x, de_type, h)
             elif de_type == "0_hole":
+                # for a hole type DE, get width aspect
                 w = de[2]
+                # 1/2 probability to offset x coord
                 if choice < 0.5:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/2 probability to offset width aspect
                 else:
                     w = offset_by_upto(w, 4, min=1, max=width - 2)
+                # place resulting "allele" in the new "gene"
                 new_de = (x, de_type, w)
             elif de_type == "6_stairs":
+                # for a stair type DE, get height, direction aspects
                 h = de[2]
                 dx = de[3]  # -1 or 1
+                # 1/3 probability to offset x coord
                 if choice < 0.33:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/3 probability to offset height aspect
                 elif choice < 0.66:
                     h = offset_by_upto(h, 8, min=1, max=height - 4)
+                # 1/3 probability to reverse direction
                 else:
                     dx = -dx
+                # place resulting "allele" in the new "gene"
                 new_de = (x, de_type, h, dx)
             elif de_type == "1_platform":
+                #for a platform type DE, get width, y coord, and block type aspects
                 w = de[2]
                 y = de[3]
                 madeof = de[4]  # from "?", "X", "B"
+                # 1/4 probability to offset x coord
                 if choice < 0.25:
                     x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                # 1/4 probability to offset width aspect
                 elif choice < 0.5:
                     w = offset_by_upto(w, 8, min=1, max=width - 2)
+                # 1/4 probability to offset y coord
                 elif choice < 0.75:
                     y = offset_by_upto(y, height, min=0, max=height - 1)
+                # 1/4 probability to reselect block type at random
                 else:
                     madeof = random.choice(["?", "X", "B"])
+                # place resulting "allele" in the new "gene"
                 new_de = (x, de_type, w, y, madeof)
             elif de_type == "2_enemy":
+                # for an enemy type DE, do nothing
                 pass
+            # pop the original gene from the new genome, push the mutated new gene onto the new genome, then return the new genome
             new_genome.pop(to_change)
             heapq.heappush(new_genome, new_de)
         return new_genome
