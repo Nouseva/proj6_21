@@ -77,14 +77,27 @@ class Individual_Grid(object):
 
     # Create zero or more children from self and other
     def generate_children(self, other):
-        new_genome = copy.deepcopy(self.genome)
         # Leaving first and last columns alone...
         # do crossover with other
         # print(new_genome)
         # print(other)
+        new_gen1 = []
+        new_gen2 = []
         left = 1
         right = width - 1
         # print(len(new_genome), width)
+
+        # Single-point crossover
+
+        # Select a random crossover point
+        cross_point = math.floor(random.random() * right)
+
+        # For each row, slice the lists and append them to the new genomes
+        for y in range(height):
+            new_gen1.append(self.genome[y][:cross_point] + other.genome[y][cross_point:])
+            new_gen2.append(other.genome[y][:cross_point] + self.genome[y][cross_point:])
+
+        """
         for y in range(height):
             for x in range(left, right):
                 # STUDENT Which one should you take?  Self, or other?  Why?
@@ -94,9 +107,9 @@ class Individual_Grid(object):
                 new_genome[y][x] = selected[y][x]
 
                 pass
-        # do mutation; note we're returning a one-element tuple here
-        new_genome = self.mutate(new_genome)
-        return (Individual_Grid(new_genome),)
+        """
+        # Return all the possible children formed with the parent genomes
+        return ( Individual_Grid(self.mutate(new_gen1)), Individual_Grid(self.mutate(new_gen2)) )
 
     # Turn the genome into a level string (easy for this genome)
     def to_level(self):
@@ -368,7 +381,11 @@ def generate_successors(population):
 
     groupings = list(zip(population, partners))
 
-    results = [ p.generate_children(q)[0] for p, q in groupings ]
+    def select_best_child(children):
+        children = list(children)
+        return max(children, key=lambda c: c.fitness())
+
+    results = list(map(select_best_child, [ p.generate_children(q) for p, q in groupings ]))
     return results
 
 
