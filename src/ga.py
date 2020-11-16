@@ -96,9 +96,9 @@ class Individual_Grid(object):
     # Mutate a genome into a new genome.  Note that this is a _genome_, not an individual!
     def mutate(self, new_genome):
         # How likely a genome is to be modified
-        mutation_chance = 0.4
+        mutation_chance = 0.1
         # How much of a genome is modified if it is
-        mutation_percentage = 0.3
+        mutation_percentage = 0.12
         # STUDENT implement a mutation operator, also consider not mutating this individual
         # STUDENT also consider weighting the different tile types so it's not uniformly random
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
@@ -221,61 +221,88 @@ class Individual_Grid(object):
     # Scan through level, making sure that it has no inconsistencies
     def clean_level(self):
         g = self.genome
+
+        # Traverse vertically for pipes
         # Clean up to ensure no floating pipes
-        for row in range(height-1):
-            for col in range(flag_col):
+        for col in range(flag_col):
+            complete_vert = False
+            # Start from the bottom of the level
+            for row in reversed(range(height-1)):
+
+                # If something has cleaned the entire column, e.g. pipes
+                if complete_vert:
+                    break
+
                 # Spaces have no requirements
                 if g[row][col] == '-':
                     continue
 
-                # Special cases when in column that preceeds the flag
-                if col + 1 == flag_col:
+                # leave space around the ignored items: player, goal
+                if g[row][col] == 'm':
+                    g[row-1][col] = '-'
+                    g[row][col+1] = '-'
+                    g[row-1][col+1] = '-'
+
+                # Pipe must have a tube or solid base below it, empty space next to it
+                if g[row][col] == 'T' or g[row][col] == '|':
+
                     # Pipes are not allowed in the column preceeding the flag
-                    if g[row][col] == 'T' or g[row][col] == '|':
+                    if col + 1 == flag_col:
                         g[row][col] = '-'
+                        continue
 
-                # Cases where right neighbor can be modified
-                else:
-                    # Pipe must have a tube or solid base below it, empty space next to it
-                    if g[row][col] == 'T' or g[row][col] == '|':
-                        r_blocks = ('|', '-')
-                        # Ensure right neighbor is empty
-                        g[row][col+1] = '-'
+                    p_blocks = ('|', '-')
+                    b_blocks = ('X', 'X')
+                    # Ensure right neighbor is empty
+                    g[row][col+1] = '-'
 
-                        # If there is no base, add pipe down
-                        if not (g[row+1][col] == 'X' or g[row+1][col] == '|'):
-                            g[row+1][col], g[row+1][col+1]  = r_blocks
+                    # If there is no base, add base
+                    if not (g[row+1][col] == 'X' or g[row+1][col] == '|'):
+                        # If pipe above an ignored item, turn into a space
+                        if g[row+1][col] in options['ignored']:
+                            g[row][col] = '-'
+                        else:
+                            # Make this pipe into a base
+                            g[row][col], g[row][col+1]  = b_blocks
+                        continue
 
-                        # Pipe top must have a 2x2 empty space above it, else it must exit past the top screen
-                        # There is not enough space, move to edge or cover with unbreakable blocks
-                        if row < 3:
+
+
+                    def clean_pipe_top(r, c):
+                        top_r_blocks = random.choices(options['traverse'], k=2)
+                        bot_r_blocks = random.choices(options['traverse'] + options['enemy'], k=2)
+
+                        g[r-2][c], g[r-2][c+1] = top_r_blocks
+                        g[r-1][c], g[r-1][c+1] = bot_r_blocks
+
+                    # Pipe top must have a 2x2 empty space above it, else it must exit past the top screen
+                    if row < 3:
+                        # Small chance that pipe will become a top piece
+                        if g[row][col] == '|' and random.random() < .8:
                             switch = None
                             for r in reversed(range(row+1)):
                                 if not switch and random.random() < .5:
                                     switch = True
-                                    r_blocks = ('X', 'X')
+                                    p_blocks = ('X', 'X')
 
-                                g[r][col], g[r][col+1] = r_blocks
-
-                        # Pipe has 2x2 space available above it
+                                g[r][col], g[r][col+1] = p_blocks
                         else:
-                            # Pipe is midsection, check element above is pipe/block
-                            if g[row][col] == '|':
-                                if g[row-1][col] == '|':
-                                    continue
-                                elif g[row-1][col] == 'X':
-                                    g[row-1][col+1] = 'X'
-                                    continue
-                                else:
-                                    g[row][col], g[row][col+1] = ('T', '-')
+                            # in the case that pipe was straight piece, but became top
+                            g[row][col] = 'T'
+                            clean_pipe_top(row, col)
 
-                            # Pipe is guaranteed to be a top piece with sufficent available map space
 
-                            top_r_blocks = random.choices(options['traverse'], k=2)
-                            bot_r_blocks = random.choices(options['traverse'] + options['enemy'], k=2)
+                        complete_vert = True
+                        continue
+                    else:
+                        # Ensure that straight pipe has valid topper
+                        if g[row][col] == '|':
+                            if not (g[row-1][col] == 'T' or g[row-1][col] == 'X'):
+                                g[row-1][col] = 'T'
+                        else:
+                            # Ensure that pipe topper has clear space above it
+                            clean_pipe_top(row, col)
 
-                            g[row-2][col], g[row-2][col+1] = top_r_blocks
-                            g[row-1][col], g[row-1][col+1] = bot_r_blocks
 
         pass
 
