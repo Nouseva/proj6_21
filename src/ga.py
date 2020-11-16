@@ -79,7 +79,8 @@ class Individual_Grid(object):
     def generate_children(self, other):
         # Leaving first and last columns alone...
         # do crossover with other
-        # print(new_genome)
+        #print('new genome')
+        #print(new_genome)
         # print(other)
         new_gen1 = []
         new_gen2 = []
@@ -325,11 +326,16 @@ class Individual_DE(object):
 
     def generate_children(self, other):
         # STUDENT How does this work?  Explain it in your writeup.
+        # pick a random crossover point in each parent genome at random
         pa = random.randint(0, len(self.genome) - 1)
         pb = random.randint(0, len(other.genome) - 1)
+        # take the portion of parent a before crossover and the portion of
+        # parent b after crossover, combine for generated child a
         a_part = self.genome[:pa] if len(self.genome) > 0 else []
         b_part = other.genome[pb:] if len(other.genome) > 0 else []
         ga = a_part + b_part
+        # take the portion of parent b before crossover and the portion of
+        # parent a after crossover, combine for generated child b
         b_part = other.genome[:pb] if len(other.genome) > 0 else []
         a_part = self.genome[pa:] if len(self.genome) > 0 else []
         gb = b_part + a_part
