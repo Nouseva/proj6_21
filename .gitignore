@@ -134,4 +134,4 @@ log*.txt
 
 
 # temp generated copies of levels
-src/levels/11_*.txt
+src/levels/

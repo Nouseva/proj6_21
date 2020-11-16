@@ -9,6 +9,7 @@ import time
 import math
 
 width = 200
+flag_col = width - 1
 height = 16
 
 options = [
@@ -26,8 +27,20 @@ options = [
     #"m"  # mario's start position, do not generate
 ]
 
-# The level as a grid of tiles
-
+single_options = [
+    "-",  # an empty space
+    "X",  # a solid wall
+    "?",  # a question mark block with a coin
+    "M",  # a question mark block with a mushroom
+    "B",  # a breakable block
+    "o",  # a coin
+    #"|",  # a pipe segment
+    #"T",  # a pipe top
+    "E",  # an enemy
+    #"f",  # a flag, do not generate
+    #"v",  # a flagpole, do not generate
+    #"m"  # mario's start position, do not generate
+]
 
 class Individual_Grid(object):
     __slots__ = ["genome", "_fitness"]
@@ -65,138 +78,71 @@ class Individual_Grid(object):
     # Mutate a genome into a new genome.  Note that this is a _genome_, not an individual!
     def mutate(self, new_genome):
         # How likely a genome is to be modified
-        mutation_chance = 0.1
+        mutation_chance = 0.4
         # How much of a genome is modified if it is
-        mutation_percentage = 0.2
+        mutation_percentage = 0.3
         # STUDENT implement a mutation operator, also consider not mutating this individual
         # STUDENT also consider weighting the different tile types so it's not uniformly random
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
 
-        if random.random() < muation_chance:
+        if random.random() < mutation_chance:
             to_change = math.floor(mutation_percentage * width)
 
             # TODO: Rewrite to fit with Grid representation
             #       - For each row, try and change to_change amount of entries
             #       - Check if targeted entry would result in inconsistencies: floating pipes, no finish, etc...
             #       - have a mutation preference for each entry to be changed?: mushroom -> coin, air -> enemy, etc...
-            de = new_genome[to_change]
-            # make a new "gene" by copying the "gene" from the original genome for later "allele" modification
-            new_de = de
-            # get x coord from original "gene"
-            x = de[0]
-            # get design element type from original "gene"
-            de_type = de[1]
-            # get random float [0.0, 1.0)
-            choice = random.random()
-            if de_type == "4_block":
-                # for a block type DE, get y coord, breakability aspects from original gene
-                y = de[2]
-                breakable = de[3]
-                # 1/3 probability to offset x coord 
-                if choice < 0.33:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/3 probability to offset y coord
-                elif choice < 0.66:
-                    y = offset_by_upto(y, height / 2, min=0, max=height - 1)
-                # 1/3 probability to reverse breakability
-                else:
-                    breakable = not de[3]
-                # place resulting "allele" in the new "gene"
-                new_de = (x, de_type, y, breakable)
-            elif de_type == "5_qblock":
-                # for a ? block type DE, get y coord, powerup aspects from original gene
-                y = de[2]
-                has_powerup = de[3]  # boolean
-                # 1/3 probability to offset x coord
-                if choice < 0.33:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/3 probability to offset y coord
-                elif choice < 0.66:
-                    y = offset_by_upto(y, height / 2, min=0, max=height - 1)
-                # 1/3 probability to reverse powerup presence
-                else:
-                    has_powerup = not de[3]
-                # place resulting "allele" in the new "gene"
-                new_de = (x, de_type, y, has_powerup)
-            elif de_type == "3_coin":
-                # for a coin type DE, get y coord
-                y = de[2]
-                # 1/2 probability to offset x coord
-                if choice < 0.5:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/2 probability to offset y coord
-                else:
-                    y = offset_by_upto(y, height / 2, min=0, max=height - 1)
-                new_de = (x, de_type, y)
-            elif de_type == "7_pipe":
-                # for a pipe type DE, get height aspect
-                h = de[2]
-                # 1/2 probability to offset x coord
-                if choice < 0.5:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/2 probability to offset height aspect
-                else:
-                    h = offset_by_upto(h, 2, min=2, max=height - 4)
-                # place resulting "allele" in the new "gene"
-                new_de = (x, de_type, h)
-            elif de_type == "0_hole":
-                # for a hole type DE, get width aspect
-                w = de[2]
-                # 1/2 probability to offset x coord
-                if choice < 0.5:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/2 probability to offset width aspect
-                else:
-                    w = offset_by_upto(w, 4, min=1, max=width - 2)
-                # place resulting "allele" in the new "gene"
-                new_de = (x, de_type, w)
-            elif de_type == "6_stairs":
-                # for a stair type DE, get height, direction aspects
-                h = de[2]
-                dx = de[3]  # -1 or 1
-                # 1/3 probability to offset x coord
-                if choice < 0.33:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/3 probability to offset height aspect
-                elif choice < 0.66:
-                    h = offset_by_upto(h, 8, min=1, max=height - 4)
-                # 1/3 probability to reverse direction
-                else:
-                    dx = -dx
-                # place resulting "allele" in the new "gene"
-                new_de = (x, de_type, h, dx)
-            elif de_type == "1_platform":
-                #for a platform type DE, get width, y coord, and block type aspects
-                w = de[2]
-                y = de[3]
-                madeof = de[4]  # from "?", "X", "B"
-                # 1/4 probability to offset x coord
-                if choice < 0.25:
-                    x = offset_by_upto(x, width / 8, min=1, max=width - 2)
-                # 1/4 probability to offset width aspect
-                elif choice < 0.5:
-                    w = offset_by_upto(w, 8, min=1, max=width - 2)
-                # 1/4 probability to offset y coord
-                elif choice < 0.75:
-                    y = offset_by_upto(y, height, min=0, max=height - 1)
-                # 1/4 probability to reselect block type at random
-                else:
-                    madeof = random.choice(["?", "X", "B"])
-                # place resulting "allele" in the new "gene"
-                new_de = (x, de_type, w, y, madeof)
-            elif de_type == "2_enemy":
-                # for an enemy type DE, do nothing
-                pass
-            # pop the original gene from the new genome, push the mutated new gene onto the new genome, then return the new genome
-            new_genome.pop(to_change)
-            heapq.heappush(new_genome, new_de)
+            for row, gene_strips in enumerate(new_genome):
+                # Leave the base alone
+                if row == height - 1:
+                    break
+                # Select the elements in the row that will be changed
+                to_mutate = random.sample(list(enumerate(gene_strips)), to_change)
+
+                for col, gene in to_mutate:
+                    # Dont change anything from the flag onward
+                    if col >= flag_col - 1:
+                        continue
+
+                    # Pipe Top will become air, and move down one space if available
+                    if gene == 'T':
+                        new_genome[row][col] = '-'
+                        if new_genome[row+1][col] == '|':
+                            new_genome[row+1][col] = 'T'
+
+                    # Pipe mid will either become the new top of a pipe, or change into the new base
+                    elif gene == '|':
+                        if random.random() < .5:
+                            new_genome[row][col] = 'T'
+                            for r in reversed(range(row)):
+                                prev_gene = new_genome[r][col]
+                                new_genome[r][col] = random.choice(single_options)
+                                if prev_gene == 'T':
+                                    break
+
+                        else:
+                            new_genome[row][col] = 'X'
+                            new_genome[row][col+1] = 'X'
+
+                            # for all genes until prev pipe base, change randomly
+                            for r in range(row+1, height):
+                                if new_genome[r][col] == 'X':
+                                    break
+                                new_genome[r][col] = random.choice(single_options)
+                                new_genome[r][col+1] = random.choice(single_options)
+
+
+                    elif gene == '-':
+                        if col > 0:
+                            # dont change the empty space next to a pipe
+                            if new_genome[row][col-1] == 'T' or new_genome[row][col-1] == '|':
+                                continue
+                        new_genome[row][col] = random.choice(single_options)
+
+                    else:
+                        new_genome[row][col] = '-'
+
         return new_genome
-        left = 1
-        right = width - 1
-        for y in range(height):
-            for x in range(left, right):
-                pass
-        return genome
 
     # Create zero or more children from self and other
     def generate_children(self, other):
@@ -245,11 +191,11 @@ class Individual_Grid(object):
         g = [["-" for col in range(width)] for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
-        g[7][-2] = "v"
+        g[7][flag_col] = "v"
         for col in range(8, 14):
-            g[col][-2] = "f"
+            g[col][flag_col] = "f"
         for col in range(14, 16):
-            g[col][-2] = "X"
+            g[col][flag_col] = "X"
         return cls(g)
 
     @classmethod
@@ -259,11 +205,39 @@ class Individual_Grid(object):
         g = [random.choices(options, k=width) for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
-        g[7][-2] = "v"
-        for col in range(8, 14):
-            g[col][-2] = "f"
-        for col in range(14, 16):
-            g[col][-2] = "X"
+        g[7][flag_col] = "v"
+        for row in range(8, 14):
+            g[row][flag_col] = "f"
+        for row in range(14, 16):
+            g[row][flag_col] = "X"
+
+        # Clean up to ensure no floating pipes
+        for row in range(height-1):
+            for col in range(flag_col):
+                # Spaces have no requirements
+                if g[row][col] == '-':
+                    continue
+
+                # Special cases when in column that preceeds the flag
+                if col + 1 == flag_col:
+                    # Pipes are not allowed in the column preceeding the flag
+                    if g[row][col] == 'T' or g[row][col] == '|':
+                        g[row][col] = '-'
+
+                # Cases where right neighbor can be modified
+                else:
+                    # Pipe must have a tube or solid base below it, empty space next to it
+                    if g[row][col] == 'T' or g[row][col] == '|':
+                        # If there is no base, add pipe down
+                        if not (g[row+1][col] == 'X' or g[row+1][col] == '|'):
+                            g[row+1][col] = '|'
+                        else:
+                            # Current pipe piece has a base, ensure that base is two wide
+                            # if base is actually another pipe piece, then it will be cleaned by that piece
+                            g[row+1][col+1] = 'X'
+                        g[row][col+1] = '-'
+
+
         # g[8:14][-1] = ["f"] * 6
         # g[14:16][-1] = ["X", "X"]
         return cls(g)
