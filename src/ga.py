@@ -12,35 +12,51 @@ width = 200
 flag_col = width - 1
 height = 16
 
-options = [
-    "-",  # an empty space
-    "X",  # a solid wall
-    "?",  # a question mark block with a coin
-    "M",  # a question mark block with a mushroom
-    "B",  # a breakable block
-    "o",  # a coin
-    "|",  # a pipe segment
-    "T",  # a pipe top
-    "E",  # an enemy
-    #"f",  # a flag, do not generate
-    #"v",  # a flagpole, do not generate
-    #"m"  # mario's start position, do not generate
-]
 
-single_options = [
-    "-",  # an empty space
-    "X",  # a solid wall
-    "?",  # a question mark block with a coin
-    "M",  # a question mark block with a mushroom
-    "B",  # a breakable block
-    "o",  # a coin
-    #"|",  # a pipe segment
-    #"T",  # a pipe top
-    "E",  # an enemy
-    #"f",  # a flag, do not generate
-    #"v",  # a flagpole, do not generate
-    #"m"  # mario's start position, do not generate
-]
+options = {
+        # All Items that the generator can interact with
+        'all'     : [
+            "-",  # an empty space
+            "X",  # a solid wall
+            "?",  # a question mark block with a coin
+            "M",  # a question mark block with a mushroom
+            "B",  # a breakable block
+            "o",  # a coin
+            "|",  # a pipe segment
+            "T",  # a pipe top
+            "E",  # an enemy
+            ],
+
+        # Items that should not be interacted with by the generator
+        'ignored'   : [
+            "f",  # a flag, do not generate
+            "v",  # a flagpole, do not generate
+            "m",  # mario's start position, do not generate
+            ],
+
+        # Items that are not dependent on any neighboring blocks
+        'single'    : [
+            "-",  # an empty space
+            "X",  # a solid wall
+            "?",  # a question mark block with a coin
+            "M",  # a question mark block with a mushroom
+            "B",  # a breakable block
+            "o",  # a coin
+            "E",  # an enemy
+            ],
+
+        # Items that are no physical barrier to player
+        'traverse'  : [
+            "-",  # an empty space
+            "o",  # a coin
+            ],
+
+        # Items that pose a direct hazard to the player
+        'enemy'     : [
+            "E",  # an enemy
+            ]
+
+        }
 
 class Individual_Grid(object):
     __slots__ = ["genome", "_fitness"]
@@ -72,6 +88,8 @@ class Individual_Grid(object):
     # Return the cached fitness value or calculate it as needed.
     def fitness(self):
         if self._fitness is None:
+            # Clean level before checking fitness
+            self.clean_level()
             self.calculate_fitness()
         return self._fitness
 
@@ -102,6 +120,10 @@ class Individual_Grid(object):
                 for col, gene in to_mutate:
                     # Dont change anything from the flag onward
                     if col >= flag_col - 1:
+                        break
+
+                    # Dont mess with mario
+                    if gene in options['ignored']:
                         continue
 
                     # Pipe Top will become air, and move down one space if available
@@ -112,15 +134,9 @@ class Individual_Grid(object):
 
                     # Pipe mid will either become the new top of a pipe, or change into the new base
                     elif gene == '|':
-                        if random.random() < .5:
-                            new_genome[row][col] = 'T'
-                            for r in reversed(range(row)):
-                                prev_gene = new_genome[r][col]
-                                new_genome[r][col] = random.choice(single_options)
-                                if prev_gene == 'T':
-                                    break
 
-                        else:
+                        # If there is not enough space above, or by random chance, become the base of a pipe
+                        if row < 3 or random.random() < .5:
                             new_genome[row][col] = 'X'
                             new_genome[row][col+1] = 'X'
 
@@ -128,8 +144,25 @@ class Individual_Grid(object):
                             for r in range(row+1, height):
                                 if new_genome[r][col] == 'X':
                                     break
-                                new_genome[r][col] = random.choice(single_options)
-                                new_genome[r][col+1] = random.choice(single_options)
+
+                                # If enough space has been allocated, consider leaving the rest of the pipe
+                                if row - r > 3 and random.random() < .4:
+                                    new_genome[r][col] = 'T'
+                                    break
+                                new_genome[r][col], new_genome[r][col+1] = random.choices(options['single'], k=2)
+
+
+                        else:
+                            new_genome[row][col] = 'T'
+                            for r in reversed(range(row)):
+                                prev_gene = new_genome[r][col]
+                                new_genome[r][col] = random.choice(options['single'])
+                                if prev_gene == 'T':
+                                    break
+
+
+                    #elif gene == 'X':
+                    #    pass
 
 
                     elif gene == '-':
@@ -137,10 +170,10 @@ class Individual_Grid(object):
                             # dont change the empty space next to a pipe
                             if new_genome[row][col-1] == 'T' or new_genome[row][col-1] == '|':
                                 continue
-                        new_genome[row][col] = random.choice(single_options)
+                        new_genome[row][col] = random.choice(options['all'])
 
                     else:
-                        new_genome[row][col] = '-'
+                        new_genome[row][col] = random.choice(options['all'])
 
         return new_genome
 
@@ -185,6 +218,68 @@ class Individual_Grid(object):
     def to_level(self):
         return self.genome
 
+    # Scan through level, making sure that it has no inconsistencies
+    def clean_level(self):
+        g = self.genome
+        # Clean up to ensure no floating pipes
+        for row in range(height-1):
+            for col in range(flag_col):
+                # Spaces have no requirements
+                if g[row][col] == '-':
+                    continue
+
+                # Special cases when in column that preceeds the flag
+                if col + 1 == flag_col:
+                    # Pipes are not allowed in the column preceeding the flag
+                    if g[row][col] == 'T' or g[row][col] == '|':
+                        g[row][col] = '-'
+
+                # Cases where right neighbor can be modified
+                else:
+                    # Pipe must have a tube or solid base below it, empty space next to it
+                    if g[row][col] == 'T' or g[row][col] == '|':
+                        r_blocks = ('|', '-')
+                        # Ensure right neighbor is empty
+                        g[row][col+1] = '-'
+
+                        # If there is no base, add pipe down
+                        if not (g[row+1][col] == 'X' or g[row+1][col] == '|'):
+                            g[row+1][col], g[row+1][col+1]  = r_blocks
+
+                        # Pipe top must have a 2x2 empty space above it, else it must exit past the top screen
+                        # There is not enough space, move to edge or cover with unbreakable blocks
+                        if row < 3:
+                            switch = None
+                            for r in reversed(range(row+1)):
+                                if not switch and random.random() < .5:
+                                    switch = True
+                                    r_blocks = ('X', 'X')
+
+                                g[r][col], g[r][col+1] = r_blocks
+
+                        # Pipe has 2x2 space available above it
+                        else:
+                            # Pipe is midsection, check element above is pipe/block
+                            if g[row][col] == '|':
+                                if g[row-1][col] == '|':
+                                    continue
+                                elif g[row-1][col] == 'X':
+                                    g[row-1][col+1] = 'X'
+                                    continue
+                                else:
+                                    g[row][col], g[row][col+1] = ('T', '-')
+
+                            # Pipe is guaranteed to be a top piece with sufficent available map space
+
+                            top_r_blocks = random.choices(options['traverse'], k=2)
+                            bot_r_blocks = random.choices(options['traverse'] + options['enemy'], k=2)
+
+                            g[row-2][col], g[row-2][col+1] = top_r_blocks
+                            g[row-1][col], g[row-1][col+1] = bot_r_blocks
+
+        pass
+
+
     # These both start with every floor tile filled with Xs
     # STUDENT Feel free to change these
     @classmethod
@@ -203,7 +298,7 @@ class Individual_Grid(object):
     def random_individual(cls):
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
         # STUDENT also consider weighting the different tile types so it's not uniformly random
-        g = [random.choices(options, k=width) for row in range(height)]
+        g = [random.choices(options['all'], k=width) for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
         g[7][flag_col] = "v"
@@ -211,32 +306,6 @@ class Individual_Grid(object):
             g[row][flag_col] = "f"
         for row in range(14, 16):
             g[row][flag_col] = "X"
-
-        # Clean up to ensure no floating pipes
-        for row in range(height-1):
-            for col in range(flag_col):
-                # Spaces have no requirements
-                if g[row][col] == '-':
-                    continue
-
-                # Special cases when in column that preceeds the flag
-                if col + 1 == flag_col:
-                    # Pipes are not allowed in the column preceeding the flag
-                    if g[row][col] == 'T' or g[row][col] == '|':
-                        g[row][col] = '-'
-
-                # Cases where right neighbor can be modified
-                else:
-                    # Pipe must have a tube or solid base below it, empty space next to it
-                    if g[row][col] == 'T' or g[row][col] == '|':
-                        # If there is no base, add pipe down
-                        if not (g[row+1][col] == 'X' or g[row+1][col] == '|'):
-                            g[row+1][col] = '|'
-                        else:
-                            # Current pipe piece has a base, ensure that base is two wide
-                            # if base is actually another pipe piece, then it will be cleaned by that piece
-                            g[row+1][col+1] = 'X'
-                        g[row][col+1] = '-'
 
 
         # g[8:14][-1] = ["f"] * 6
@@ -569,11 +638,13 @@ def ga():
                     with open("levels/last.txt", 'w') as f:
                         for row in best.to_level():
                             f.write("".join(row) + "\n")
+                    if best.fitness() > 20:
+                        generation = 999
                 generation += 1
                 # STUDENT Determine stopping condition
                 # TODO: Allow to run some generation
                 # stop_condition = False
-                if generation > 20:
+                if generation > 10:
                     break
                 # STUDENT Also consider using FI-2POP as in the Sorenson & Pasquier paper
                 gentime = time.time()
