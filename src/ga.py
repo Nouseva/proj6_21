@@ -79,7 +79,7 @@ class Individual_Grid(object):
             pathPercentage=0.5,
             emptyPercentage=0.6,
             linearity=-0.5,
-            solvability=2.0
+            solvability=3.0
         )
         self._fitness = sum(map(lambda m: coefficients[m] * measurements[m],
                                 coefficients))
@@ -118,6 +118,9 @@ class Individual_Grid(object):
                 to_mutate = random.sample(list(enumerate(gene_strips)), to_change)
 
                 for col, gene in to_mutate:
+                    # An array of weights that is assigned depending on the block to be mutated
+                    choice_weights = []
+
                     # Dont change anything from the flag onward
                     if col >= flag_col - 1:
                         break
@@ -131,6 +134,7 @@ class Individual_Grid(object):
                         new_genome[row][col] = '-'
                         if new_genome[row+1][col] == '|':
                             new_genome[row+1][col] = 'T'
+                        continue
 
                     # Pipe mid will either become the new top of a pipe, or change into the new base
                     elif gene == '|':
@@ -160,21 +164,26 @@ class Individual_Grid(object):
                                 if prev_gene == 'T':
                                     break
 
+                        continue
 
-                    #elif gene == 'X':
-                    #    pass
 
+                    elif gene == 'X':
+                        # Weights for all options: [-, X, ?, M, B, o, |, T, E]
+                        choice_weights = [13, 10, 15, 12, 20, 12, 8, 8, 6]
+
+                    elif gene == 'o':
+                        # Weights for all options: [-, X, ?, M, B, o, |, T, E]
+                        choice_weights = [12, 6, 18, 8, 11, 10, 5, 5, 3]
 
                     elif gene == '-':
-                        if col > 0:
-                            # dont change the empty space next to a pipe
-                            if new_genome[row][col-1] == 'T' or new_genome[row][col-1] == '|':
-                                continue
-                        new_genome[row][col] = random.choice(options['all'])
+                        # Weights for all options: [-, X, ?, M, B, o, |, T, E]
+                        choice_weights = [10, 6, 12, 5, 15, 14, 8, 8, 6]
 
                     else:
-                        new_genome[row][col] = random.choice(options['all'])
+                        # Weights for all options: [-, X, ?, M, B, o, |, T, E]
+                        choice_weights = [10, 10, 10, 10, 10, 10, 10, 10, 10]
 
+                    new_genome[row][col] = random.choices(options['all'], weights=choice_weights, k=1)[0]
         return new_genome
 
     # Create zero or more children from self and other
@@ -226,6 +235,21 @@ class Individual_Grid(object):
         # Clean up to ensure no floating pipes
         for col in range(flag_col):
             complete_vert = False
+
+            # Clean the column preceeding the flagpole
+            if col == flag_col - 1:
+                for r in range(height-1):
+                    g[r][col] = '-'
+                continue
+
+            # Clean area above the flag
+            if col == flag_col:
+                for r in range(height-1):
+                    if g[r][col] == 'v':
+                        break
+                    g[r][col] = '-'
+                continue
+
             # Start from the bottom of the level
             for row in reversed(range(height-1)):
 
@@ -237,11 +261,12 @@ class Individual_Grid(object):
                 if g[row][col] == '-':
                     continue
 
-                # leave space around the ignored items: player, goal
+                # leave space around the player
                 if g[row][col] == 'm':
                     g[row-1][col] = '-'
                     g[row][col+1] = '-'
                     g[row-1][col+1] = '-'
+                    continue
 
                 # Pipe must have a tube or solid base below it, empty space next to it
                 if g[row][col] == 'T' or g[row][col] == '|':
@@ -265,7 +290,9 @@ class Individual_Grid(object):
                             # Make this pipe into a base
                             g[row][col], g[row][col+1]  = b_blocks
                         continue
-
+                    # pipe is above a block, ensure that base is two wide
+                    elif g[row+1][col] != '|':
+                        g[row+1][col], g[row+1][col+1]  = b_blocks
 
 
                     def clean_pipe_top(r, c):
@@ -276,14 +303,14 @@ class Individual_Grid(object):
                         g[r-1][c], g[r-1][c+1] = bot_r_blocks
 
                     # Pipe top must have a 2x2 empty space above it, else it must exit past the top screen
-                    if row < 3:
+                    if row == 2:
                         # Small chance that pipe will become a top piece
                         if g[row][col] == '|' and random.random() < .8:
                             switch = None
                             for r in reversed(range(row+1)):
                                 if not switch and random.random() < .5:
                                     switch = True
-                                    p_blocks = ('X', 'X')
+                                    p_blocks = b_blocks
 
                                 g[r][col], g[r][col+1] = p_blocks
                         else:
@@ -294,10 +321,20 @@ class Individual_Grid(object):
 
                         complete_vert = True
                         continue
+                    elif row < 2:
+                        switch = None
+                        for r in range(row+1):
+                            if not switch and random.random() < .5:
+                                switch = True
+                                p_blocks = b_blocks
+
+                            g[r][col], g[r][col+1] = p_blocks
+
                     else:
                         # Ensure that straight pipe has valid topper
                         if g[row][col] == '|':
-                            if not (g[row-1][col] == 'T' or g[row-1][col] == 'X'):
+                            above = g[row-1][col]
+                            if not (above == 'T' or above == 'X' or above == '|'):
                                 g[row-1][col] = 'T'
                         else:
                             # Ensure that pipe topper has clear space above it
